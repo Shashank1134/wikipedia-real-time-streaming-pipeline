@@ -1,0 +1,71 @@
+event:
+  name: wikipedia_recent_change
+  version: 1.0
+  description: >
+    Represents a single edit or action event from Wikipedia's
+    real-time Recent Changes stream.
+
+metadata:
+  event_time_utc:
+    type: integer
+    description: Unix timestamp when the event occurred
+
+  ingestion_time_utc:
+    type: string
+    format: iso-8601
+    description: Time when the event was received by the producer
+
+  source:
+    type: string
+    allowed_values:
+      - wikipedia
+
+core_fields:
+  page_title:
+    type: string
+    nullable: false
+    description: Title of the Wikipedia page affected
+
+  language:
+    type: string
+    nullable: false
+    description: Wikipedia language edition (e.g., enwiki, ruwiki)
+
+  event_type:
+    type: string
+    nullable: false
+    description: Type of event (edit, new, log, categorize)
+
+  user:
+    type: string
+    nullable: true
+    description: Username or IP address of the editor
+
+  is_bot:
+    type: boolean
+    nullable: false
+    description: Indicates if the edit was made by a bot
+
+  change_size:
+    type: integer
+    nullable: true
+    description: Size of change in bytes (if applicable)
+
+streaming:
+  partition_key:
+    field: language
+    description: Ensures ordering per language in streaming systems
+
+quality_rules:
+  valid_event_types:
+    - edit
+    - new
+    - log
+    - categorize
+
+  allow_null_change_size: true
+
+consumers:
+  - real_time_analytics
+  - monitoring
+  - future_ml_pipeline
