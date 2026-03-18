@@ -1,0 +1,95 @@
+import json
+import requests
+from sseclient import SSEClient
+from datetime import datetime, timezone
+import time
+
+WIKI_SSE_URL = "https://stream.wikimedia.org/v2/stream/recentchange"
+
+HEADERS = {
+    "User-Agent": "WikipediaStreamingProject/1.0 (contact: your_email@example.com)"
+}
+
+RUN_DURATION_SECONDS = 600  # 10 minutes
+
+
+def normalize_event(raw_event):
+    return {
+        "event_time_utc": raw_event.get("timestamp"),
+        "ingestion_time_utc": datetime.now(timezone.utc).isoformat(),
+        "source": "wikipedia",
+        "page_title": raw_event.get("title"),
+        "language": raw_event.get("wiki"),
+        "event_type": raw_event.get("type"),
+        "user": raw_event.get("user"),
+        "is_bot": raw_event.get("bot", False),
+        "change_size": raw_event.get("length", {}).get("new")
+    }
+
+
+def start_stream():
+    print("Connecting to Wikipedia Recent Changes stream...")
+
+    start_time = time.time()
+    event_count = 0
+
+    try:
+        response = requests.get(
+            WIKI_SSE_URL,
+            headers=HEADERS,
+            stream=True,
+            timeout=10
+        )
+
+        print(f"HTTP status code: {response.status_code}")
+
+        if response.status_code != 200:
+            print("❌ Failed to connect to Wikipedia stream.")
+            print(response.text)
+            return
+
+        print("✅ HTTP connection established. Listening for events...\n")
+
+        client = SSEClient(response)
+
+        for event in client.events():
+
+            # Stop after defined duration
+            if time.time() - start_time > RUN_DURATION_SECONDS:
+                print("\n⏱️ Time limit reached. Stopping stream.")
+                break
+
+            if event.event != "message":
+                continue
+
+            if not event.data:
+                continue
+
+            try:
+                raw_data = json.loads(event.data)
+            except json.JSONDecodeError:
+                continue
+
+            normalized = normalize_event(raw_data)
+
+            print("\n--- Wikipedia Event ---")
+            print(json.dumps(normalized, indent=2))
+
+            event_count += 1
+
+        print(f"\n✅ Total events processed: {event_count}")
+
+    except requests.exceptions.RequestException as e:
+        print("❌ Network error occurred:")
+        print(str(e))
+
+    except Exception as e:
+        print("❌ Unexpected error:")
+        print(str(e))
+
+    finally:
+        print("🔚 Stream ended.")
+
+
+if __name__ == "__main__":
+    start_stream()
