@@ -1,4 +1,4 @@
-# 📡 Wikipedia Real-Time Streaming Pipeline (Project 9)
+# 📡 Wikipedia Real-Time Streaming Pipeline
 
 ## 🔹 Overview
 
